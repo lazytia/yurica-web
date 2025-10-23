@@ -1,0 +1,46 @@
+type User @table {
+  email: String!
+  displayName: String!
+  createdAt: Timestamp!
+  role: String!
+  phoneNumber: String
+  address: String
+}
+
+type MenuItem @table {
+  name: String!
+  price: Float!
+  category: Category!
+  description: String!
+  imageUrl: String!
+  createdAt: Timestamp!
+  allergyInformation: [String]
+  spicyLevel: Int
+}
+
+type Category @table {
+  name: String!
+  createdAt: Timestamp!
+  description: String
+  displayOrder: Int
+}
+
+type Order @table {
+  user: User!
+  orderDate: Timestamp!
+  totalAmount: Float!
+  status: String!
+  createdAt: Timestamp!
+  deliveryAddress: String
+  pickupTime: Timestamp
+  specialInstructions: String
+}
+
+type OrderItem @table {
+  order: Order!
+  menuItem: MenuItem!
+  quantity: Int!
+  priceAtOrder: Float!
+  createdAt: Timestamp!
+  notes: String
+}

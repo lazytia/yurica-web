@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "yurica-b2b",
+    ": production": "yurica-b2b"
+  },
+  "targets": {},
+  "etags": {}
+}
