@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <title>Yurica · 메뉴 관리자</title>
+
+  <!-- Firebase SDK (모두 defer로 뒤에서 실행) -->
+  <script src="/__/firebase/firebase-app-compat.js" defer></script>
+  <script src="/__/firebase/firebase-auth-compat.js" defer></script>
+  <script src="/__/firebase/firebase-firestore-compat.js" defer></script>
+  <script src="/__/firebase/firebase-storage-compat.js" defer></script>
+  <script src="/__/firebase/init.js" defer></script>
+
+  <style>
+    :root{--bg:#0b0f14;--panel:#11161d;--muted:#8a97a6;--text:#e6edf3;--border:#222f3b}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans KR"}
+    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);background:rgba(11,15,20,.9);backdrop-filter:blur(6px)}
+    h1{margin:0;font-size:18px}
+    .badge{padding:4px 8px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:12px}
+    .btn{appearance:none;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:10px 12px;border-radius:10px;cursor:pointer;font-size:14px}
+    .btn:hover{border-color:#2a3849}
+    .btn.primary{border-color:#224c2f;background:#0f1b14;color:#b8f1c7}
+    .btn.blue{border-color:#1f3b67;background:#0e1726;color:#c5dbff}
+    .btn.danger{border-color:#5a1e1e;background:#1a0d0d;color:#ffc7c7}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    .toolbar{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;margin-bottom:12px}
+    .search{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+    .search input{flex:1;background:transparent;border:0;outline:0;color:var(--text);font-size:14px}
+    .filters{display:flex;gap:8px;flex-wrap:wrap}
+    table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+    thead th{background:#0e141b;color:#9fb0c3;font-size:12px;text-align:left;padding:10px;border-bottom:1px solid var(--border)}
+    tbody td{padding:10px;border-bottom:1px solid var(--border);vertical-align:middle}
+    tbody tr:hover{background:rgba(255,255,255,.02)}
+    .thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:#0b1117;border:1px solid #223144}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+    .muted{color:var(--muted)}
+    .chip{padding:2px 8px;border:1px solid var(--border);border-radius:999px;font-size:12px}
+    .ok{color:#b6f3c5;background:#0f1b14;border-color:#224c2f}
+    .off{color:#ffd1d1;background:#1a0d0d;border-color:#5a1e1e}
+    .right{display:flex;align-items:center;gap:8px}
+    .hidden{display:none}
+
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+    .modal{width:100%;max-width:560px;background:#101720;border:1px solid var(--border);border-radius:16px;overflow:hidden}
+    .modal header{position:relative;backdrop-filter:none}
+    .body{padding:16px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+    .field input,.field textarea,.field select{padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#0e141b;color:#e6edf3}
+    .preview{width:100%;aspect-ratio:4/3;border:1px dashed #354458;border-radius:12px;background:#0b1117;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .preview img{max-width:100%;max-height:100%}
+    .error{color:#ffb4b4;font-size:12px;min-height:14px}
+
+    .footer-note{margin-top:10px;font-size:12px;color:#8a97a6}
+    .toast{position:fixed;right:16px;bottom:20px;background:#11161d;border:1px solid #274a32;color:#c8ffd8;border-radius:12px;padding:10px 12px;font-size:13px;display:none;z-index:80}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="right" style="gap:12px">
+      <button class="btn" onclick="location.href='/'">← 대시보드</button>
+      <h1>메뉴 관리자</h1>
+      <span class="badge" id="auth-badge">Auth: —</span>
+      <span class="badge" id="env-badge">env: —</span>
+    </div>
+    <div class="right">
+    <button class="btn" onclick="location.href='/stats.html'">통계 보기</button>
+      <button class="btn" id="btnSignOut">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 21l-4.2-4.2M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="#6b7785" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="q" placeholder="이름 검색… (엔터)"/>
+        <button class="btn" id="qClear">지우기</button>
+      </div>
+      <div class="filters">
+        <select id="fCategory" class="btn">
+          <option value="">전체 카테고리</option>
+          <option>Sushi</option><option>Sashimi</option><option>Tempura</option>
+          <option>Donburi</option><option>Noodle</option><option>Drink</option><option>Other</option>
+        </select>
+        <select id="fAvail" class="btn">
+          <option value="">전체 상태</option>
+          <option value="1">판매중</option>
+          <option value="0">품절</option>
+        </select>
+      </div>
+      <div class="right">
+        <button class="btn primary" id="btnAdd">+ 새 메뉴</button>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:80px">사진</th>
+          <th>이름</th>
+          <th>카테고리</th>
+          <th>가격(AUD)</th>
+          <th>상태</th>
+          <th>업데이트</th>
+          <th style="width:200px">작업</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <div class="right" style="margin-top:10px">
+      <button class="btn" id="prev" disabled>이전</button>
+      <button class="btn" id="next" disabled>다음</button>
+      <span class="badge" id="countBadge">0개</span>
+    </div>
+
+    <div class="footer-note">정렬: 업데이트 최신순 · 한 페이지 50개 · 검색은 이름 prefix 매칭</div>
+  </div>
+
+  <!-- 로그인 폴백 -->
+  <div class="overlay" id="loginOverlay" aria-modal="true" role="dialog">
+    <div class="modal">
+      <header><h1 style="margin:10px 16px">로그인 필요</h1></header>
+      <div class="body">
+        <div class="field"><label>이메일</label><input id="email" type="email" autocomplete="username"></div>
+        <div class="field"><label>비밀번호</label><input id="password" type="password" autocomplete="current-password"></div>
+        <div class="error" id="loginError"></div>
+        <div class="right" style="justify-content:space-between">
+          <button class="btn" id="loginCancel">닫기</button>
+          <button class="btn primary" id="loginSubmit">로그인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 추가/수정 모달 -->
+  <div class="overlay" id="editOverlay">
+    <div class="modal">
+      <header><h1 style="margin:10px 16px" id="editTitle">메뉴 추가</h1></header>
+      <div class="body">
+        <form id="editForm">
+          <div class="field">
+            <label>사진 <span class="muted">(jpg/png, 5MB 이하)</span></label>
+            <input id="photo" type="file" accept="image/*"/>
+            <div class="preview" id="preview"><span class="muted">미리보기</span></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>이름</label><input id="name" required></div>
+            <div class="field"><label>가격(AUD)</label><input id="price" type="number" step="0.01" min="0" required></div>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label>카테고리</label>
+              <select id="category">
+                <option>Sushi</option><option>Sashimi</option><option>Tempura</option>
+                <option>Donburi</option><option>Noodle</option><option>Drink</option><option>Other</option>
+              </select>
+            </div>
+            <div class="field"><label>알러지 정보</label><input id="allergens" placeholder="gluten, shellfish, soy"></div>
+          </div>
+          <div class="field"><label>설명</label><textarea id="description" rows="3"></textarea></div>
+          <div class="field"><label><input id="isAvailable" type="checkbox" checked> 판매중</label></div>
+          <div class="error" id="editError"></div>
+          <div class="right" style="justify-content:space-between">
+            <button type="button" class="btn" id="editCancel">취소</button>
+            <button type="submit" class="btn primary">저장</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">완료</div>
+
+  <!-- 내 코드: SDK 준비될 때까지 대기 -->
+  <script>
+    // Firebase SDK 준비될 때까지 대기하는 보조 함수 (최대 5초, 50ms 간격)
+    function whenFirebaseReady(callback){
+      let tries = 0;
+      const timer = setInterval(() => {
+        if (window.firebase && firebase.apps && typeof firebase.app === 'function') {
+          clearInterval(timer);
+          callback();
+        } else if (++tries > 100) { // 100 * 50ms = 5s
+          clearInterval(timer);
+          console.error('Firebase SDK가 로드되지 않았습니다.');
+          alert('초기화 오류: Firebase SDK가 로드되지 않았습니다. (네트워크/캐시 확인)');
+        }
+      }, 50);
+    }
+
+    // 페이지 로드 완료 후, Firebase 준비될 때 실행
+    window.addEventListener('load', () => {
+      whenFirebaseReady(() => {
+        const authBadge = document.getElementById('auth-badge');
+        const envBadge  = document.getElementById('env-badge');
+
+        const tbody = document.getElementById('tbody');
+        const q = document.getElementById('q');
+        const qClear = document.getElementById('qClear');
+        const fCategory = document.getElementById('fCategory');
+        const fAvail = document.getElementById('fAvail');
+        const btnAdd = document.getElementById('btnAdd');
+        const btnPrev = document.getElementById('prev');
+        const btnNext = document.getElementById('next');
+        const countBadge = document.getElementById('countBadge');
+
+        const loginOverlay = document.getElementById('loginOverlay');
+        const loginError = document.getElementById('loginError');
+
+        const editOverlay = document.getElementById('editOverlay');
+        const editTitle = document.getElementById('editTitle');
+        const editForm = document.getElementById('editForm');
+        const photo = document.getElementById('photo');
+        const preview = document.getElementById('preview');
+        const nameEl = document.getElementById('name');
+        const priceEl = document.getElementById('price');
+        const categoryEl = document.getElementById('category');
+        const allergensEl = document.getElementById('allergens');
+        const descriptionEl = document.getElementById('description');
+        const isAvailableEl = document.getElementById('isAvailable');
+        const editError = document.getElementById('editError');
+
+        let db, auth, storage;
+        let pageSize = 50;
+        let lastDoc = null, firstDoc = null;
+        let stack = [];
+        let editingId = null;
+
+        function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg||'완료'; t.style.display='block'; setTimeout(()=>t.style.display='none',1600); }
+        function show(el){ el.style.display='flex'; }
+        function hide(el){ el.style.display='none'; }
+        function setBadge(el, t){ el.textContent = t; }
+
+        // ===== Boot Auth/SDK =====
+        (async function boot(){
+          try{
+            const app = firebase.app();
+            const pid = (app.options?.projectId || '').toLowerCase();
+            setBadge(envBadge, `env: ${/dev|test/.test(pid)?'dev':'prod'}`);
+
+            auth = firebase.auth();
+            db = firebase.firestore();
+            storage = firebase.storage();
+
+            // 익명 먼저
+            try{
+              await auth.signInAnonymously();
+              setBadge(authBadge, 'Auth: anonymous');
+            }catch(e){
+              setBadge(authBadge, 'Auth: login required');
+              show(loginOverlay);
+            }
+
+            if(auth.currentUser){
+              await loadPage(true);
+            }
+
+            document.getElementById('btnSignOut').onclick=async()=>{ await auth.signOut(); location.reload(); };
+
+            q.addEventListener('keydown',e=>{ if(e.key==='Enter'){ loadPage(true); }});
+            qClear.onclick=()=>{ q.value=''; loadPage(true); };
+            fCategory.onchange=()=>loadPage(true);
+            fAvail.onchange=()=>loadPage(true);
+
+            btnPrev.onclick = async ()=>{
+              if(stack.length>0){
+                const cursor = stack.pop();
+                lastDoc = null;
+                await loadPage(false, cursor);
+              }
+            };
+            btnNext.onclick = async ()=>{ await loadNext(); };
+
+            btnAdd.onclick = ()=> openEditModal();
+
+            document.getElementById('loginCancel').onclick=()=> hide(loginOverlay);
+            document.getElementById('loginSubmit').onclick = async ()=>{
+              const email = document.getElementById('email').value.trim();
+              const pw = document.getElementById('password').value;
+              loginError.textContent='';
+              try{
+                await auth.signInWithEmailAndPassword(email, pw);
+                hide(loginOverlay);
+                setBadge(authBadge, `Auth: ${auth.currentUser?.email||'email'}`);
+                await loadPage(true);
+              }catch(err){ loginError.textContent = err.message || '로그인 실패'; }
+            };
+
+            document.getElementById('editCancel').onclick = ()=> hide(editOverlay);
+            photo.addEventListener('change', ()=>{
+              preview.innerHTML='<span class="muted">미리보기</span>';
+              const f=photo.files?.[0]; if(!f) return;
+              const url = URL.createObjectURL(f);
+              const img = new Image(); img.src = url; img.onload=()=>URL.revokeObjectURL(url);
+              preview.innerHTML=''; preview.appendChild(img);
+            });
+
+            editForm.addEventListener('submit', onSave);
+          }catch(e){
+            alert('초기화 오류: '+e.message);
+            console.error(e);
+          }
+        })();
+
+        // ===== Query & render =====
+        function buildQuery(){
+          return db.collection('menu').orderBy('updatedAt','desc');
+        }
+
+        async function loadPage(reset=false, cursor=null){
+          const ref = buildQuery();
+          let snap;
+          if(reset){
+            stack = [];
+            snap = await ref.limit(pageSize).get();
+          }else if(cursor){
+            snap = await ref.startAt(cursor).limit(pageSize).get();
+          }else if(lastDoc){
+            snap = await ref.startAfter(lastDoc).limit(pageSize).get();
+          }else{
+            snap = await ref.limit(pageSize).get();
+          }
+
+          const docs = snap.docs.map(d=>({id:d.id, ...d.data()}));
+
+          const term = q.value.trim().toLowerCase();
+          const fc = fCategory.value;
+          const fa = fAvail.value;
+          const filtered = docs.filter(x=>{
+            if(fc && x.category!==fc) return false;
+            if(fa==='1' && !x.isAvailable) return false;
+            if(fa==='0' && !!x.isAvailable) return false;
+            if(term && !(x.name||'').toLowerCase().includes(term)) return false;
+            return true;
+          });
+
+          renderRows(filtered);
+
+          firstDoc = snap.docs[0] || null;
+          lastDoc  = snap.docs[snap.docs.length-1] || null;
+
+          btnPrev.disabled = stack.length===0;
+          btnNext.disabled = !snap.docs.length || snap.docs.length < pageSize;
+
+          if(reset){
+            if(firstDoc) stack = [firstDoc];
+          }else if(lastDoc && firstDoc){
+            stack.push(firstDoc);
+          }
+          countBadge.textContent = `${filtered.length}개`;
+        }
+
+        async function loadNext(){ await loadPage(false); }
+
+        function renderRows(items){
+          tbody.innerHTML='';
+          for(const m of items){
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${m.photoURL?`<img class="thumb" src="${m.photoURL}" alt="">`:`<div class="thumb"></div>`}</td>
+              <td><strong>${escapeHtml(m.name||'-')}</strong><br><span class="muted mono">${m.id}</span></td>
+              <td>${escapeHtml(m.category||'-')}</td>
+              <td class="mono">${typeof m.price==='number'? m.price.toFixed(2):'-'}</td>
+              <td><span class="chip ${m.isAvailable?'ok':'off'}">${m.isAvailable?'판매중':'품절'}</span></td>
+              <td class="muted">${fmtDate(m.updatedAt)}</td>
+              <td class="right">
+                <button class="btn" data-act="toggle" data-id="${m.id}" data-val="${m.isAvailable?0:1}">${m.isAvailable?'품절로':'판매로'}</button>
+                <button class="btn" data-act="edit" data-id="${m.id}">수정</button>
+                <button class="btn danger" data-act="del" data-id="${m.id}">삭제</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          }
+          tbody.querySelectorAll('button[data-act]').forEach(btn=>{
+            const act = btn.dataset.act, id = btn.dataset.id;
+            if(act==='toggle') btn.onclick = ()=> toggleAvail(id, btn.dataset.val==='1');
+            if(act==='edit')   btn.onclick = ()=> openEditModal(id);
+            if(act==='del')    btn.onclick = ()=> delMenu(id);
+          });
+        }
+
+        function fmtDate(ts){
+          try{ if(!ts) return '-'; const d = ts.toDate ? ts.toDate() : new Date(ts);
+            return new Intl.DateTimeFormat('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d);
+          }catch{ return '-'; }
+        }
+        function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+        // ===== CRUD =====
+        function openEditModal(id=null){
+          editingId = id;
+          editError.textContent='';
+          editForm.reset();
+          preview.innerHTML = '<span class="muted">미리보기</span>';
+          if(id){
+            editTitle.textContent='메뉴 수정';
+            db.collection('menu').doc(id).get().then(doc=>{
+              const d = doc.data()||{};
+              nameEl.value = d.name||'';
+              priceEl.value = typeof d.price==='number'? d.price.toFixed(2):'';
+              categoryEl.value = d.category||'Other';
+              allergensEl.value = d.allergens||'';
+              descriptionEl.value = d.description||'';
+              isAvailableEl.checked = !!d.isAvailable;
+              if(d.photoURL){
+                const img = new Image(); img.src = d.photoURL;
+                preview.innerHTML=''; preview.appendChild(img);
+              }
+              show(editOverlay);
+            });
+          }else{
+            editTitle.textContent='메뉴 추가';
+            isAvailableEl.checked = true;
+            show(editOverlay);
+          }
+        }
+
+        async function onSave(e){
+          e.preventDefault();
+          editError.textContent='';
+          try{
+            const name = nameEl.value.trim();
+            const price = parseFloat(priceEl.value);
+            const category = categoryEl.value;
+            const allergens = allergensEl.value.trim();
+            const description = descriptionEl.value.trim();
+            const isAvailable = !!isAvailableEl.checked;
+            if(!name || !(price>=0)) throw new Error('이름/가격을 확인하세요');
+
+            let ref = editingId ? db.collection('menu').doc(editingId) : db.collection('menu').doc();
+            const id = ref.id;
+
+            let photoURL = null;
+            const file = photo.files?.[0];
+            if(file){
+              if(file.size > 5*1024*1024) throw new Error('이미지 5MB 초과');
+              const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
+              const snap = await firebase.storage().ref(`menu-images/${id}.${ext}`).put(file, {contentType:file.type||'image/jpeg'});
+              photoURL = await snap.ref.getDownloadURL();
+            }
+
+            const payload = {
+              name, price, category, allergens, description, isAvailable,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if(!editingId){
+              payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+              payload.createdBy = firebase.auth().currentUser?.uid || null;
+            }
+            if(photoURL) payload.photoURL = photoURL;
+
+            await ref.set(payload, {merge:true});
+            hide(editOverlay);
+            toast('저장되었습니다');
+            await loadPage(true);
+          }catch(err){
+            editError.textContent = err.message || '저장 실패';
+          }
+        }
+
+        async function toggleAvail(id, toAvailable){
+          try{
+            await firebase.firestore().collection('menu').doc(id).update({
+              isAvailable: !!toAvailable,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            await loadPage(true);
+          }catch(e){ alert('상태 변경 실패: '+e.message); }
+        }
+
+        async function delMenu(id){
+          if(!confirm('삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
+          try{
+            await firebase.firestore().collection('menu').doc(id).delete();
+            await loadPage(true);
+            toast('삭제 완료');
+          }catch(e){ alert('삭제 실패: '+e.message); }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

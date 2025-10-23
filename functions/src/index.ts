@@ -11,10 +11,17 @@ import {setGlobalOptions} from "firebase-functions";
 // import {onRequest} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 import * as functions from "firebase-functions";
+import { onCall } from "firebase-functions/v2/https";
 
 export const ping = functions.https.onRequest((req, res) => {
   logger.info("Ping v1");
   res.send("pong");
+});
+
+export const helloYurica = onCall((req) => {
+  const name = req.data?.name ?? "Guest";
+  logger.info("helloYurica called", { name });
+  return { message: `Hello, ${name}!` };
 });
 
 

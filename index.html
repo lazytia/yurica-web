@@ -4,9 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Yurica 주문 시스템</title>
+  <script src="/__/firebase/10.12.0/firebase-app-compat.js"></script>
+  <script src="/__/firebase/10.12.0/firebase-auth-compat.js"></script>
+  <script src="/__/firebase/10.12.0/firebase-firestore-compat.js"></script>
+  
   <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-firestore.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-storage.js"></script>
+
+  <script src="/__/firebase/init.js"></script>
   <style>
     body { font-family: Arial, sans-serif; }
     h1 { text-align: center; }
@@ -27,9 +33,10 @@
       appId: "YOUR_APP_ID"
     };
 
-    const app = firebase.initializeApp(firebaseConfig);
+    const app = firebase.app();
     const db = firebase.firestore(app);
     const storage = firebase.storage(app);
+    console.log('Firebase loaded:', app.name);
 
     // Firestore에서 주문 목록을 가져와서 화면에 표시
     const orderListDiv = document.getElementById("orderList");

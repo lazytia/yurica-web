@@ -31,14 +31,21 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ping = void 0;
+exports.helloYurica = exports.ping = void 0;
 const firebase_functions_1 = require("firebase-functions");
 // import {onRequest} from "firebase-functions/https";
 const logger = __importStar(require("firebase-functions/logger"));
 const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 exports.ping = functions.https.onRequest((req, res) => {
     logger.info("Ping v1");
     res.send("pong");
+});
+exports.helloYurica = (0, https_1.onCall)((req) => {
+    var _a, _b;
+    const name = (_b = (_a = req.data) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : "Guest";
+    logger.info("helloYurica called", { name });
+    return { message: `Hello, ${name}!` };
 });
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
